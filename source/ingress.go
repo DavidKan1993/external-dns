@@ -43,10 +43,11 @@ type ingressSource struct {
 	annotationFilter      string
 	fqdnTemplate          *template.Template
 	combineFQDNAnnotation bool
+	overrideHosts         []string
 }
 
 // NewIngressSource creates a new ingressSource with the given config.
-func NewIngressSource(kubeClient kubernetes.Interface, namespace, annotationFilter string, fqdnTemplate string, combineFqdnAnnotation bool) (Source, error) {
+func NewIngressSource(kubeClient kubernetes.Interface, namespace, annotationFilter string, fqdnTemplate string, combineFqdnAnnotation bool, overrideHosts []string) (Source, error) {
 	var (
 		tmpl *template.Template
 		err  error
@@ -66,6 +67,7 @@ func NewIngressSource(kubeClient kubernetes.Interface, namespace, annotationFilt
 		annotationFilter:      annotationFilter,
 		fqdnTemplate:          tmpl,
 		combineFQDNAnnotation: combineFqdnAnnotation,
+		overrideHosts:         overrideHosts,
 	}, nil
 }
 
@@ -92,7 +94,7 @@ func (sc *ingressSource) Endpoints() ([]*endpoint.Endpoint, error) {
 			continue
 		}
 
-		ingEndpoints := endpointsFromIngress(&ing)
+		ingEndpoints := sc.endpointsFromIngress(&ing)
 
 		// apply template if host is missing on ingress
 		if (sc.combineFQDNAnnotation || len(ingEndpoints) == 0) && sc.fqdnTemplate != nil {
@@ -143,7 +145,11 @@ func (sc *ingressSource) endpointsFromTemplate(ing *v1beta1.Ingress) ([]*endpoin
 	targets := getTargetsFromTargetAnnotation(ing.Annotations)
 
 	if len(targets) == 0 {
-		targets = targetsFromIngressStatus(ing.Status)
+		targets = sc.targetsFromIngressStatus(ing.Status)
+	}
+
+	if sc.overrideHosts != nil {
+		targets = endpoint.Targets(sc.overrideHosts)
 	}
 
 	providerSpecific := getProviderSpecificAnnotations(ing.Annotations)
@@ -196,7 +202,7 @@ func (sc *ingressSource) setResourceLabel(ingress v1beta1.Ingress, endpoints []*
 }
 
 // endpointsFromIngress extracts the endpoints from ingress object
-func endpointsFromIngress(ing *v1beta1.Ingress) []*endpoint.Endpoint {
+func (sc *ingressSource) endpointsFromIngress(ing *v1beta1.Ingress) []*endpoint.Endpoint {
 	var endpoints []*endpoint.Endpoint
 
 	ttl, err := getTTLFromAnnotations(ing.Annotations)
@@ -207,7 +213,11 @@ func endpointsFromIngress(ing *v1beta1.Ingress) []*endpoint.Endpoint {
 	targets := getTargetsFromTargetAnnotation(ing.Annotations)
 
 	if len(targets) == 0 {
-		targets = targetsFromIngressStatus(ing.Status)
+		targets = sc.targetsFromIngressStatus(ing.Status)
+	}
+
+	if sc.overrideHosts != nil {
+		targets = endpoint.Targets(sc.overrideHosts)
 	}
 
 	providerSpecific := getProviderSpecificAnnotations(ing.Annotations)
@@ -236,7 +246,7 @@ func endpointsFromIngress(ing *v1beta1.Ingress) []*endpoint.Endpoint {
 	return endpoints
 }
 
-func targetsFromIngressStatus(status v1beta1.IngressStatus) endpoint.Targets {
+func (sc *ingressSource) targetsFromIngressStatus(status v1beta1.IngressStatus) endpoint.Targets {
 	var targets endpoint.Targets
 
 	for _, lb := range status.LoadBalancer.Ingress {

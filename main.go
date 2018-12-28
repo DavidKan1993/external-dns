@@ -74,6 +74,7 @@ func main() {
 		Compatibility:            cfg.Compatibility,
 		PublishInternal:          cfg.PublishInternal,
 		PublishHostIP:            cfg.PublishHostIP,
+		OverrideHostIPs:          cfg.OverrideHostIPs,
 		ConnectorServer:          cfg.ConnectorSourceServer,
 		CRDSourceAPIVersion:      cfg.CRDSourceAPIVersion,
 		CRDSourceKind:            cfg.CRDSourceKind,

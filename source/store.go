@@ -45,6 +45,7 @@ type Config struct {
 	Compatibility            string
 	PublishInternal          bool
 	PublishHostIP            bool
+	OverrideHostIPs          []string
 	ConnectorServer          string
 	CRDSourceAPIVersion      string
 	CRDSourceKind            string
@@ -118,7 +119,7 @@ func BuildWithConfig(source string, p ClientGenerator, cfg *Config) (Source, err
 		if err != nil {
 			return nil, err
 		}
-		return NewIngressSource(client, cfg.Namespace, cfg.AnnotationFilter, cfg.FQDNTemplate, cfg.CombineFQDNAndAnnotation)
+		return NewIngressSource(client, cfg.Namespace, cfg.AnnotationFilter, cfg.FQDNTemplate, cfg.CombineFQDNAndAnnotation, cfg.OverrideHostIPs)
 	case "istio-gateway":
 		kubernetesClient, err := p.KubeClient()
 		if err != nil {
